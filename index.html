@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تحدي التدرج في نصف القطر للعناصر</title>
+<style>
+  :root{
+    --team1:#F4B400; --team1-d:#c98f00;
+    --team2:#4285F4; --team2-d:#2a5db8;
+    --team3:#34A853; --team3-d:#227a3b;
+    --team4:#A142F4; --team4-d:#7b1fc9;
+    --team5:#FF6D91; --team5-d:#d63f66;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; font-family:'Tahoma','Segoe UI',sans-serif;
+    background: radial-gradient(circle at 20% 20%, #1e3c72, #0f1b3d 60%), linear-gradient(135deg,#141e30,#243b55);
+    background-blend-mode:screen;
+    color:#fff; overflow-x:hidden; position:relative;
+  }
+  .stars{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
+  .star{position:absolute; width:3px; height:3px; background:#fff; border-radius:50%; opacity:.7; animation:twinkle 3s infinite ease-in-out;}
+  @keyframes twinkle{0%,100%{opacity:.2;}50%{opacity:1;}}
+
+  .screen{display:none; position:relative; z-index:1; min-height:100vh; padding:24px; animation:fadeIn .4s ease;}
+  .screen.active{display:flex; flex-direction:column; align-items:center;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+
+  h1.title{
+    font-size:2.4rem; margin:10px 0 6px; text-align:center;
+    background:linear-gradient(90deg,#ffd700,#fff,#ffd700);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px rgba(255,215,0,.3);
+  }
+  .subtitle{color:#c7d3f5; margin-bottom:20px; text-align:center; font-size:1.05rem;}
+
+  /* Team scoreboard */
+  .scoreboard{
+    display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:26px; width:100%; max-width:1100px;
+  }
+  .team-card{
+    flex:1 1 160px; min-width:150px; border-radius:16px; padding:14px 10px; text-align:center;
+    background:rgba(255,255,255,.06); border:2px solid transparent; backdrop-filter:blur(6px);
+    transition:transform .25s, box-shadow .25s; position:relative;
+  }
+  .team-card.t1{border-color:var(--team1); box-shadow:0 0 14px rgba(244,180,0,.25);}
+  .team-card.t2{border-color:var(--team2); box-shadow:0 0 14px rgba(66,133,244,.25);}
+  .team-card.t3{border-color:var(--team3); box-shadow:0 0 14px rgba(52,168,83,.25);}
+  .team-card.t4{border-color:var(--team4); box-shadow:0 0 14px rgba(161,66,244,.25);}
+  .team-card.t5{border-color:var(--team5); box-shadow:0 0 14px rgba(255,109,145,.25);}
+  .team-card .num{
+    width:38px; height:38px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:1.1rem; color:#111;
+  }
+  .t1 .num{background:var(--team1);} .t2 .num{background:var(--team2); color:#fff;}
+  .t3 .num{background:var(--team3); color:#fff;} .t4 .num{background:var(--team4); color:#fff;}
+  .t5 .num{background:var(--team5);}
+  .team-card .name{font-weight:bold; font-size:.95rem; margin-bottom:4px;}
+  .team-card .score{font-size:1.6rem; font-weight:900;}
+  .team-card.active-turn{transform:scale(1.07); box-shadow:0 0 26px 4px rgba(255,255,255,.35);}
+  .team-card .score.bump{animation:bump .6s ease;}
+  @keyframes bump{0%{transform:scale(1); color:#7CFC00;}50%{transform:scale(1.4); color:#7CFC00;}100%{transform:scale(1); color:inherit;}}
+
+  /* Question grid */
+  .grid-wrap{width:100%; max-width:900px;}
+  .grid{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:24px;
+  }
+  @media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr);}}
+  .qcell{
+    aspect-ratio:1/1; border-radius:16px; border:none; cursor:pointer;
+    background:linear-gradient(145deg,#2b3a67,#1c2747);
+    color:#fff; font-size:1.6rem; font-weight:900; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    box-shadow:0 6px 0 #10182f, 0 8px 16px rgba(0,0,0,.4);
+    transition:transform .15s, box-shadow .15s;
+    position:relative;
+  }
+  .qcell:hover:not(.locked){transform:translateY(-4px); box-shadow:0 10px 0 #10182f, 0 14px 20px rgba(0,0,0,.5);}
+  .qcell:active:not(.locked){transform:translateY(2px); box-shadow:0 3px 0 #10182f;}
+  .qcell .pts{font-size:.85rem; font-weight:700; opacity:.85;}
+  .qcell .diff{position:absolute; top:6px; left:6px; font-size:.65rem; padding:2px 6px; border-radius:8px; background:rgba(255,255,255,.15);}
+  .qcell.easy .diff{background:#2d8f4e;}
+  .qcell.medium .diff{background:#c98f00;}
+  .qcell.hard .diff{background:#c0392b;}
+  .qcell.locked{
+    background:linear-gradient(145deg,#3c3c3c,#232323); cursor:not-allowed; opacity:.55;
+  }
+  .qcell.locked.wonByTeam{opacity:1;}
+
+  .end-btn{
+    margin-top:10px; padding:14px 34px; font-size:1.1rem; font-weight:bold; border:none; border-radius:30px;
+    background:linear-gradient(90deg,#ff416c,#ff4b2b); color:#fff; cursor:pointer;
+    box-shadow:0 6px 20px rgba(255,65,108,.4); transition:transform .15s;
+  }
+  .end-btn:hover{transform:scale(1.05);}
+
+  /* Question screen */
+  #screen-question{max-width:900px; margin:0 auto; width:100%;}
+  .qtop{display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:10px; gap:10px; flex-wrap:wrap;}
+  .back-btn{
+    padding:9px 18px; border-radius:20px; border:2px solid #fff3; background:rgba(255,255,255,.08); color:#fff;
+    cursor:pointer; font-weight:bold; font-size:.9rem; transition:.2s;
+  }
+  .back-btn:hover{background:rgba(255,255,255,.2);}
+  .turn-badge{
+    padding:8px 20px; border-radius:20px; font-weight:900; font-size:1rem; color:#111;
+  }
+  .points-badge{padding:8px 16px; border-radius:20px; background:rgba(255,255,255,.1); font-weight:bold;}
+
+  .timer-wrap{width:100%; background:rgba(255,255,255,.15); border-radius:20px; height:16px; overflow:hidden; margin:14px 0 8px; position:relative;}
+  .timer-bar{height:100%; background:linear-gradient(90deg,#43e97b,#38f9d7); width:100%; transition:width 1s linear, background .3s;}
+  .timer-bar.warn{background:linear-gradient(90deg,#ff512f,#dd2476);}
+  .timer-text{text-align:center; font-weight:900; font-size:1.1rem; margin-bottom:16px;}
+
+  .qbox{
+    background:rgba(255,255,255,.07); border-radius:20px; padding:26px; text-align:center;
+    font-size:1.5rem; font-weight:800; line-height:1.6; margin-bottom:22px; min-height:100px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .options{display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%;}
+  @media(max-width:640px){.options{grid-template-columns:1fr;}}
+  .opt{
+    padding:20px; border-radius:16px; border:2px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06);
+    color:#fff; font-size:1.15rem; font-weight:700; cursor:pointer; transition:.2s; text-align:center;
+  }
+  .opt:hover:not(.disabled){background:rgba(255,255,255,.18); transform:translateY(-2px);}
+  .opt.correct{background:#2ecc71; border-color:#27ae60; animation:pulseGreen .5s ease;}
+  .opt.wrong{background:#e74c3c; border-color:#c0392b; animation:shake .5s ease;}
+  .opt.disabled{cursor:not-allowed; opacity:.7;}
+  @keyframes pulseGreen{0%{transform:scale(1);}50%{transform:scale(1.05);}100%{transform:scale(1);}}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+
+  .feedback{
+    margin-top:20px; padding:18px; border-radius:16px; width:100%; text-align:center; font-size:1.1rem; font-weight:bold;
+    display:none;
+  }
+  .feedback.show{display:block; animation:fadeIn .3s ease;}
+  .feedback.ok{background:rgba(46,204,113,.2); border:2px solid #2ecc71;}
+  .feedback.bad{background:rgba(231,76,60,.2); border:2px solid #e74c3c;}
+  .feedback .fbtitle{font-size:1.3rem; margin-bottom:8px;}
+
+  .continue-btn{
+    margin-top:16px; padding:12px 30px; border-radius:24px; border:none; background:#fff; color:#1c2747;
+    font-weight:900; cursor:pointer; font-size:1rem;
+  }
+
+  /* Confetti canvas */
+  #confetti-canvas{position:fixed; inset:0; pointer-events:none; z-index:50;}
+
+  /* Winner screen */
+  #screen-winner{justify-content:center; align-items:center; min-height:100vh; text-align:center;}
+  .trophy{font-size:6rem; animation:bounce 1.2s infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-20px);}}
+  .winner-name{
+    font-size:3rem; font-weight:900; margin:14px 0; padding:10px 40px; border-radius:20px;
+    text-shadow:0 0 30px rgba(255,255,255,.6);
+  }
+  .final-rank{margin-top:30px; width:100%; max-width:600px;}
+  .rank-row{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 20px; margin-bottom:10px;
+    border-radius:14px; background:rgba(255,255,255,.08); font-weight:bold; font-size:1.1rem;
+  }
+  .rank-row.first{background:rgba(255,215,0,.25); border:2px solid gold; font-size:1.3rem;}
+  .restart-btn{
+    margin-top:30px; padding:14px 36px; border-radius:30px; border:none; font-size:1.1rem; font-weight:bold;
+    background:linear-gradient(90deg,#43e97b,#38f9d7); color:#0a2540; cursor:pointer;
+  }
+
+  .confirm-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:100;
+  }
+  .confirm-overlay.show{display:flex;}
+  .confirm-box{
+    background:#1c2747; border-radius:20px; padding:30px; text-align:center; max-width:360px; border:2px solid rgba(255,255,255,.2);
+  }
+  .confirm-box p{font-size:1.15rem; font-weight:bold; margin-bottom:20px;}
+  .confirm-actions{display:flex; gap:12px; justify-content:center;}
+  .confirm-actions button{padding:10px 22px; border-radius:20px; border:none; font-weight:bold; cursor:pointer;}
+  .btn-yes{background:#e74c3c; color:#fff;}
+  .btn-no{background:rgba(255,255,255,.15); color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<canvas id="confetti-canvas"></canvas>
+
+<!-- MAIN MENU -->
+<div class="screen active" id="screen-menu">
+  <h1 class="title">🏆 تحدي التدرج في نصف القطر للعناصر</h1>
+  <p class="subtitle">اختر أي سؤال من اللوحة - كل فريق يختار بدوره</p>
+
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <button class="end-btn" onclick="askEndQuiz()">🏅 إنهاء المسابقة الآن</button>
+</div>
+
+<!-- QUESTION SCREEN -->
+<div class="screen" id="screen-question">
+  <div class="qtop">
+    <button class="back-btn" onclick="askBackToMenu()">⬅ القائمة الرئيسية</button>
+    <div class="turn-badge" id="turnBadge"></div>
+    <div class="points-badge" id="pointsBadge"></div>
+  </div>
+
+  <div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>
+  <div class="timer-text" id="timerText">10 ث</div>
+
+  <div class="qbox" id="qbox"></div>
+  <div class="options" id="options"></div>
+
+  <div class="feedback" id="feedback">
+    <div class="fbtitle" id="fbTitle"></div>
+    <div id="fbBody"></div>
+    <button class="continue-btn" onclick="backToMenu()">متابعة ⬅</button>
+  </div>
+</div>
+
+<!-- WINNER SCREEN -->
+<div class="screen" id="screen-winner">
+  <div class="trophy">🏆</div>
+  <div class="subtitle" style="font-size:1.3rem;">الفريق الفائز</div>
+  <div class="winner-name" id="winnerName"></div>
+  <div class="final-rank" id="finalRank"></div>
+  <button class="restart-btn" onclick="restartAll()">🔄 مسابقة جديدة</button>
+</div>
+
+<!-- Confirm overlay -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p id="confirmText">هل أنت متأكد؟</p>
+    <div class="confirm-actions">
+      <button class="btn-yes" id="confirmYes">نعم</button>
+      <button class="btn-no" onclick="closeConfirm()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const TEAMS = [
+  {id:1, name:'الفريق 1', cls:'t1', color:'#F4B400'},
+  {id:2, name:'الفريق 2', cls:'t2', color:'#4285F4'},
+  {id:3, name:'الفريق 3', cls:'t3', color:'#34A853'},
+  {id:4, name:'الفريق 4', cls:'t4', color:'#A142F4'},
+  {id:5, name:'الفريق 5', cls:'t5', color:'#FF6D91'},
+];
+
+const QUESTIONS = [
+  {q:"عند الانتقال من أعلى إلى أسفل في المجموعة الواحدة، ماذا يحدث لنصف القطر الذري؟",
+   opts:["يزداد","يقل","يبقى ثابتًا","يصبح صفرًا"], correct:0, diff:'easy', pts:10, time:10},
+  {q:"أي الذرتين أكبر نصف قطرًا: الكالسيوم Ca أم البروم Br؟",
+   opts:["الكالسيوم Ca","البروم Br","متساويان","لا يمكن المقارنة"], correct:0, diff:'easy', pts:10, time:10},
+  {q:"عند الانتقال من اليسار إلى اليمين في الدورة الواحدة، ماذا يحدث لنصف القطر الذري؟",
+   opts:["يقل","يزداد","يبقى ثابتًا","يتضاعف"], correct:0, diff:'easy', pts:10, time:15},
+  {q:"أي الذرتين أكبر نصف قطرًا: الكالسيوم Ca أم السترونشيوم Sr؟",
+   opts:["Ca","Sr","متساويان","لا يمكن المقارنة"], correct:1, diff:'medium', pts:30, time:20},
+  {q:"أي الذرتين أكبر نصف قطرًا: الألومنيوم Al أم السيليكون Si؟",
+   opts:["Al","Si","متساويان","لا يمكن تحديده"], correct:0, diff:'medium', pts:30, time:20},
+  {q:"عنصر X وعنصر Y في الدورة نفسها، وكان X يقع إلى يسار Y. أيهما يُتوقع أن يكون أكبر نصف قطرًا؟",
+   opts:["X","Y","متساويان دائمًا","لا توجد علاقة"], correct:0, diff:'medium', pts:30, time:20},
+  {q:"عنصران في المجموعة نفسها؛ الأول في الدورة الثالثة والثاني في الدورة الخامسة. أيهما يُتوقع أن يكون أكبر نصف قطرًا؟",
+   opts:["عنصر الدورة الثالثة","عنصر الدورة الخامسة","متساويان","لا يمكن المقارنة"], correct:1, diff:'medium', pts:30, time:20},
+  {q:"لماذا يقل نصف القطر الذري غالبًا عبر الدورة رغم زيادة عدد الإلكترونات؟",
+   opts:["تزداد الشحنة النووية الفعالة فتزداد قوة جذب الإلكترونات","تختفي مستويات الطاقة","يقل عدد البروتونات","تتحول الإلكترونات إلى نيوترونات"], correct:0, diff:'hard', pts:50, time:20},
+  {q:"ما العامل الذي يفسر زيادة نصف القطر الذري عند النزول في المجموعة؟",
+   opts:["زيادة عدد مستويات الطاقة الرئيسة","نقص عدد البروتونات دائمًا","اختفاء إلكترونات التكافؤ","نقص مستويات الطاقة"], correct:0, diff:'hard', pts:50, time:20},
+  {q:"لماذا تزداد الشحنة النووية الفعالة عبر الدورة رغم بقاء عدد مستويات الطاقة الداخلية ثابتًا؟",
+   opts:["لأن عدد البروتونات يزداد بينما التدريع بين إلكترونات نفس المستوى ضعيف","لأن عدد النيوترونات يقل","لأن الإلكترونات تنتقل لمستوى أعلى","لأن البروتونات تتحول إلى إلكترونات"], correct:0, diff:'hard', pts:50, time:20},
+];
+
+const diffLabel = {easy:'سهل', medium:'متوسط', hard:'صعب'};
+
+/* ============ STATE ============ */
+let scores = {1:0,2:0,3:0,4:0,5:0};
+let solved = new Array(QUESTIONS.length).fill(false);
+let solvedBy = new Array(QUESTIONS.length).fill(null);
+let currentTeamIdx = 0; // index into TEAMS for whose turn it is
+let currentQ = null;
+let timerInterval = null;
+let timeLeft = 0;
+let totalTime = 10;
+let answered = false;
+
+/* ============ INIT ============ */
+function buildStars(){
+  const c = document.getElementById('stars');
+  let out='';
+  for(let i=0;i<80;i++){
+    const top = Math.random()*100, left = Math.random()*100, dur = 2+Math.random()*3, delay = Math.random()*3;
+    out += `<div class="star" style="top:${top}%;left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s;"></div>`;
+  }
+  c.innerHTML = out;
+}
+
+function renderScoreboard(){
+  const el = document.getElementById('scoreboard');
+  el.innerHTML = TEAMS.map((t,i)=>`
+    <div class="team-card ${t.cls} ${i===currentTeamIdx?'active-turn':''}" id="teamcard-${t.id}">
+      <div class="num">${t.id}</div>
+      <div class="name">${t.name}</div>
+      <div class="score" id="score-${t.id}">${scores[t.id]}</div>
+    </div>
+  `).join('');
+}
+
+function renderGrid(){
+  const el = document.getElementById('grid');
+  el.innerHTML = QUESTIONS.map((q,i)=>{
+    const lockedCls = solved[i] ? 'locked wonByTeam' : '';
+    const teamColor = solved[i] ? TEAMS.find(t=>t.id===solvedBy[i]).color : '';
+    const style = solved[i] ? `style="background:linear-gradient(145deg,${teamColor}99,${teamColor}55); box-shadow:0 6px 0 #10182f;"` : '';
+    return `
+    <button class="qcell ${q.diff} ${lockedCls}" ${style} ${solved[i]?'disabled':''} onclick="openQuestion(${i})">
+      <span class="diff">${diffLabel[q.diff]}</span>
+      <span>${i+1}</span>
+      <span class="pts">${q.pts} نقطة</span>
+      ${solved[i] ? '<span style="font-size:1.2rem;">✅</span>' : ''}
+    </button>
+  `;
+  }).join('');
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ============ QUESTION FLOW ============ */
+function openQuestion(i){
+  if(solved[i]) return;
+  currentQ = i;
+  answered = false;
+  const q = QUESTIONS[i];
+  totalTime = q.time;
+  timeLeft = q.time;
+
+  const team = TEAMS[currentTeamIdx];
+  const badge = document.getElementById('turnBadge');
+  badge.textContent = 'دور: ' + team.name;
+  badge.style.background = team.color;
+
+  document.getElementById('pointsBadge').textContent = q.pts + ' نقطة • ' + diffLabel[q.diff];
+  document.getElementById('qbox').textContent = q.q;
+
+  const optsEl = document.getElementById('options');
+  optsEl.innerHTML = q.opts.map((o,idx)=>`<div class="opt" data-idx="${idx}" onclick="selectAnswer(${idx})">${o}</div>`).join('');
+
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('feedback').innerHTML = '<div class="fbtitle" id="fbTitle"></div><div id="fbBody"></div><button class="continue-btn" onclick="backToMenu()">متابعة ⬅</button>';
+
+  showScreen('screen-question');
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  updateTimerUI();
+  timerInterval = setInterval(()=>{
+    timeLeft--;
+    updateTimerUI();
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      if(!answered) timeUp();
+    }
+  },1000);
+}
+
+function updateTimerUI(){
+  const pct = Math.max(0,(timeLeft/totalTime)*100);
+  const bar = document.getElementById('timerBar');
+  bar.style.width = pct+'%';
+  bar.classList.toggle('warn', timeLeft<=3);
+  document.getElementById('timerText').textContent = Math.max(0,timeLeft) + ' ث';
+}
+
+function timeUp(){
+  answered = true;
+  const q = QUESTIONS[currentQ];
+  document.querySelectorAll('.opt').forEach((el,idx)=>{
+    el.classList.add('disabled');
+    if(idx===q.correct) el.classList.add('correct');
+  });
+  playSound('wrong');
+  showFeedback(false, q);
+}
+
+function selectAnswer(idx){
+  if(answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+  const q = QUESTIONS[currentQ];
+  const opts = document.querySelectorAll('.opt');
+  opts.forEach(el=>el.classList.add('disabled'));
+
+  const isCorrect = idx===q.correct;
+  if(isCorrect){
+    opts[idx].classList.add('correct');
+    playSound('correct');
+    launchConfetti();
+    awardPoints(q.pts);
+  } else {
+    opts[idx].classList.add('wrong');
+    opts[q.correct].classList.add('correct');
+    playSound('wrong');
+  }
+  showFeedback(isCorrect, q);
+}
+
+function awardPoints(pts){
+  const team = TEAMS[currentTeamIdx];
+  scores[team.id] += pts;
+  solved[currentQ] = true;
+  solvedBy[currentQ] = team.id;
+}
+
+function showFeedback(isCorrect, q){
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback show ' + (isCorrect?'ok':'bad');
+  document.getElementById('fbTitle').textContent = isCorrect ? '🎉 إجابة صحيحة!' : '❌ إجابة خاطئة';
+  document.getElementById('fbBody').textContent = isCorrect
+    ? ('+'+q.pts+' نقطة لـ ' + TEAMS[currentTeamIdx].name)
+    : ('الإجابة الصحيحة: ' + q.opts[q.correct]);
+
+  if(!isCorrect){
+    solved[currentQ] = true; // mark attempted/locked either way so it can't be re-picked endlessly
+    solvedBy[currentQ] = TEAMS[currentTeamIdx].id; // shows which team took it (attempted)
+  }
+}
+
+function backToMenu(){
+  // advance turn to next team
+  currentTeamIdx = (currentTeamIdx+1) % TEAMS.length;
+  renderScoreboard();
+  renderGrid();
+  showScreen('screen-menu');
+  checkAllSolved();
+}
+
+function askBackToMenu(){
+  clearInterval(timerInterval);
+  showScreen('screen-menu');
+}
+
+/* ============ END / WINNER ============ */
+function checkAllSolved(){
+  if(solved.every(s=>s)){
+    setTimeout(endQuiz, 600);
+  }
+}
+
+function askEndQuiz(){
+  showConfirm('هل تريد إنهاء المسابقة الآن وإعلان الفريق الفائز؟', endQuiz);
+}
+
+function endQuiz(){
+  closeConfirm();
+  const ranked = [...TEAMS].sort((a,b)=>scores[b.id]-scores[a.id]);
+  const topScore = scores[ranked[0].id];
+  const winners = ranked.filter(t=>scores[t.id]===topScore);
+
+  const winnerNameEl = document.getElementById('winnerName');
+  const subtitleEl = document.querySelector('#screen-winner .subtitle');
+  if(winners.length>1){
+    winnerNameEl.innerHTML = winners.map(w=>w.name).join(' 🤝 ');
+    winnerNameEl.style.background = 'linear-gradient(90deg,'+winners.map(w=>w.color+'33').join(',')+')';
+    winnerNameEl.style.color = '#ffd700';
+    winnerNameEl.style.border = '3px solid #ffd700';
+    subtitleEl.textContent = 'تعادل! الفرق الفائزة';
+  } else {
+    const winner = winners[0];
+    winnerNameEl.textContent = winner.name;
+    winnerNameEl.style.background = winner.color+'33';
+    winnerNameEl.style.color = winner.color;
+    winnerNameEl.style.border = '3px solid '+winner.color;
+    subtitleEl.textContent = 'الفريق الفائز';
+  }
+
+  let rankCounter = 1;
+  document.getElementById('finalRank').innerHTML = ranked.map((t,i)=>{
+    if(i>0 && scores[t.id]!==scores[ranked[i-1].id]) rankCounter = i+1;
+    const isTop = scores[t.id]===topScore;
+    return `
+    <div class="rank-row ${isTop?'first':''}">
+      <span>${rankCounter}. ${t.name}</span>
+      <span>${scores[t.id]} نقطة</span>
+    </div>
+  `;
+  }).join('');
+
+  showScreen('screen-winner');
+  playSound('win');
+  launchConfetti(3000);
+  setTimeout(()=>launchConfetti(1500), 500);
+  setTimeout(()=>launchConfetti(1500), 1200);
+}
+
+function restartAll(){
+  scores = {1:0,2:0,3:0,4:0,5:0};
+  solved = new Array(QUESTIONS.length).fill(false);
+  solvedBy = new Array(QUESTIONS.length).fill(null);
+  currentTeamIdx = 0;
+  renderScoreboard();
+  renderGrid();
+  showScreen('screen-menu');
+}
+
+/* ============ CONFIRM DIALOG ============ */
+let confirmCallback = null;
+function showConfirm(text, cb){
+  document.getElementById('confirmText').textContent = text;
+  confirmCallback = cb;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+function closeConfirm(){
+  document.getElementById('confirmOverlay').classList.remove('show');
+}
+document.getElementById('confirmYes').onclick = ()=>{ if(confirmCallback) confirmCallback(); };
+
+/* ============ CONFETTI ============ */
+const canvas = document.getElementById('confetti-canvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+let confettiParticles = [];
+let confettiRunning = false;
+function launchConfetti(duration=1800){
+  const colors = ['#F4B400','#4285F4','#34A853','#A142F4','#FF6D91','#ffd700','#ffffff'];
+  const count = 140;
+  for(let i=0;i<count;i++){
+    confettiParticles.push({
+      x: Math.random()*canvas.width,
+      y: -20 - Math.random()*canvas.height*0.3,
+      w: 6+Math.random()*6,
+      h: 8+Math.random()*10,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      rot: Math.random()*360,
+      vRot: (Math.random()-0.5)*10,
+      vy: 2+Math.random()*3,
+      vx: (Math.random()-0.5)*2,
+      life: duration + Math.random()*500
+    });
+  }
+  if(!confettiRunning){ confettiRunning = true; requestAnimationFrame(animateConfetti); }
+}
+function animateConfetti(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  confettiParticles.forEach(p=>{
+    p.y += p.vy; p.x += p.vx; p.rot += p.vRot; p.life -= 16;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(p.rot*Math.PI/180);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+    ctx.restore();
+  });
+  confettiParticles = confettiParticles.filter(p=>p.life>0 && p.y<canvas.height+40);
+  if(confettiParticles.length>0){
+    requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRunning = false;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+}
+
+/* ============ SOUND (Web Audio API - no external files) ============ */
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSound(type){
+  try{
+    const ac = getAudioCtx();
+    if(type==='correct'){
+      // cheerful ascending arpeggio
+      const notes = [523.25,659.25,783.99,1046.5];
+      notes.forEach((freq,i)=>{
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type='triangle'; o.frequency.value=freq;
+        o.connect(g); g.connect(ac.destination);
+        const t = ac.currentTime + i*0.09;
+        g.gain.setValueAtTime(0.0001,t);
+        g.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+        o.start(t); o.stop(t+0.3);
+      });
+      // light "applause" noise burst
+      const bufferSize = ac.sampleRate*0.6;
+      const buffer = ac.createBuffer(1,bufferSize,ac.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1)*Math.exp(-i/bufferSize*3); }
+      const noise = ac.createBufferSource(); noise.buffer = buffer;
+      const filt = ac.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=2500;
+      const ng = ac.createGain(); ng.gain.value=0.18;
+      noise.connect(filt); filt.connect(ng); ng.connect(ac.destination);
+      noise.start(ac.currentTime+0.05);
+    } else if(type==='wrong'){
+      // two-tone descending "buzzer" (distinct from the old sawtooth sweep)
+      const freqs=[196.00,146.83];
+      freqs.forEach((freq,i)=>{
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type='square'; const t = ac.currentTime + i*0.18;
+        o.frequency.setValueAtTime(freq,t);
+        o.connect(g); g.connect(ac.destination);
+        g.gain.setValueAtTime(0.0001,t);
+        g.gain.exponentialRampToValueAtTime(0.28,t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+        o.start(t); o.stop(t+0.24);
+      });
+      return;
+      const o = ac.createOscillator(); const g = ac.createGain();
+      o.type='sawtooth'; o.frequency.setValueAtTime(220,ac.currentTime);
+      o.frequency.exponentialRampToValueAtTime(110,ac.currentTime+0.35);
+      o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(0.22,ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+0.4);
+      o.start(); o.stop(ac.currentTime+0.42);
+    } else if(type==='win'){
+      const notes = [523.25,523.25,523.25,659.25,783.99,1046.5,1318.5];
+      notes.forEach((freq,i)=>{
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.type='square'; o.frequency.value=freq;
+        o.connect(g); g.connect(ac.destination);
+        const t = ac.currentTime + i*0.15;
+        g.gain.setValueAtTime(0.0001,t);
+        g.gain.exponentialRampToValueAtTime(0.3,t+0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+0.4);
+        o.start(t); o.stop(t+0.42);
+      });
+    }
+  }catch(e){ console.log('audio error', e); }
+}
+
+/* Ensure AudioContext resumes on first user gesture (browser autoplay policy) */
+document.addEventListener('click', ()=>{ if(audioCtx && audioCtx.state==='suspended') audioCtx.resume(); }, {once:false});
+
+/* ============ START ============ */
+buildStars();
+renderScoreboard();
+renderGrid();
+</script>
+</body>
+</html>
